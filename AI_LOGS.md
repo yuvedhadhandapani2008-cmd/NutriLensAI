@@ -1,50 +1,114 @@
-# AI Development Logs
+# NutriLens AI - AI Development Logs
 
-## Project
-NutriLens AI
+## Project Overview
 
-AI-powered calorie tracking mobile app built using React Native Expo.
-
----
-
-# Day 1
-
-## Objective
-Create stable project setup and dashboard UI.
-
----
-
-## AI Tools Used
+AI-powered nutrition tracking app built using:
+- React Native
+- Expo
+- Gemini Vision API
+- Cursor AI
 - ChatGPT
 
----
-
-## Prompts Used
-
-### Prompt 1
-"Guide me step by step to build an AI calorie tracking app using React Native Expo."
-
-### Purpose
-Understand setup process and development roadmap.
+Goal:
+Upload food images and get:
+- food recognition
+- calories
+- protein
+- carbs
+- fats
 
 ---
 
-### Prompt 2
-"Create a modern dark dashboard UI for a calorie tracking app."
+# Day 1 - Project Initialization
 
-### Purpose
-Generate dashboard interface.
+## Tasks Completed
+- Created Expo React Native app
+- Connected Android device using Expo Go
+- Configured GitHub repository
+- Built initial dashboard UI
+- Added dark theme interface
+
+## AI Assistance Used
+- ChatGPT for architecture guidance
+- Cursor AI for code generation
+
+## Issues Faced
+- Expo dependency conflicts
+- Worklets version mismatch
+- Metro bundler cache errors
+
+## Solutions Applied
+- Recreated clean Expo SDK project
+- Cleared cache using:
+  npx expo start -c
+- Removed incompatible dependencies
 
 ---
 
-## Work Completed
-- Created stable Expo SDK 54 app
-- Built dashboard UI
-- Created folder structure
-- Fixed React Native errors
-- Successfully ran app on physical device
+# Day 2 - AI Food Recognition
+
+## Features Added
+- Image upload using expo-image-picker
+- Base64 image conversion
+- Gemini Vision API integration
+- Nutrition analysis output
+
+## Prompt Engineering
+Prompt used:
+"Analyze this food image and provide:
+- food names
+- calories
+- protein
+- carbs
+- fats"
+
+## Major Bugs
+### Watermelon Repetition Bug
+Issue:
+AI repeatedly returned watermelon for unrelated images.
+
+Root Cause:
+Cached or malformed image payload.
+
+Fix:
+- Rebuilt image conversion flow
+- Cleared Expo cache
+- Reworked Gemini request structure
+
+### Expo FileSystem Error
+Issue:
+readAsStringAsync deprecated in Expo SDK 54.
+
+Fix:
+Used:
+expo-file-system/legacy
 
 ---
 
-## Notes
-Used clean Expo setup to avoid dependency conflicts from advanced templates.
+# Current Working Flow
+
+User uploads image →
+Image converted to base64 →
+Gemini Vision analyzes image →
+Nutrition details displayed
+
+---
+
+# AI Models Used
+
+| Tool | Purpose |
+|---|---|
+| Gemini Vision | Food recognition |
+| ChatGPT | Debugging and architecture |
+| Cursor AI | Code generation and fixes |
+
+---
+
+# Planned Features
+
+- Daily calorie tracking
+- Meal history
+- Macro progress charts
+- CalAI-inspired UI
+- Authentication
+- Cloud storage
