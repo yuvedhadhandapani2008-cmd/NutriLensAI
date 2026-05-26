@@ -1,62 +1,78 @@
-const API_KEY =
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-  "AIzaSyA_4SLVZiKCAzGsD8b2M1aWTG3UeNXiHpY";
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 const MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",
 ];
 
-const PROMPT = `Analyze this food image carefully.
+const PROMPT = `You are an advanced AI nutritionist and fitness coach.
 
-Identify ALL foods visible.
+Analyze this food image in detail.
 
-For EACH food give:
-- Food name
-- Calories
-- Protein
-- Carbs
-- Fat
+Identify:
+- all visible foods
+- desserts
+- sweets
+- drinks
+- sauces
+- ingredients
 
-Then give:
-TOTAL NUTRITION
+Estimate:
+- serving quantity in grams
+- portion size
+- ingredient quantities
 
-Keep the response short and clean.`;
+For EACH food item provide:
+- calories
+- protein
+- carbs
+- fats
+- fiber
+- sugar
+- sodium
 
-function normalizeBase64(data) {
-  if (!data || typeof data !== "string") {
-    return null;
-  }
-  const comma = data.indexOf(",");
-  if (data.startsWith("data:") && comma !== -1) {
-    return data.slice(comma + 1);
-  }
-  return data.replace(/\s/g, "");
+Also provide:
+- vitamins
+- minerals
+- micronutrients
+
+Then provide:
+1. Total overall calories
+2. Total protein
+3. Total carbs
+4. Total fat
+
+Then provide:
+- whether this meal is healthy
+- whether it is good for muscle gain
+- whether it is good for weight loss
+- gym/diet recommendation
+
+Return response in clean sections.
+
+Support:
+- Indian foods
+- desserts
+- sweets
+- fast food
+- beverages
+- mixed plates
+- restaurant meals
+- homemade meals`;
+
+function cleanBase64(data) {
+  if (!data) return "";
+  const match = data.match(/^data:image\/[^;]+;base64,(.+)$/);
+  const raw = match ? match[1] : data;
+  return raw.replace(/\s/g, "");
 }
 
-function getErrorMessage(error) {
-  if (typeof error === "string") {
-    return error;
-  }
-
-  const apiError = error?.apiError;
-
-  if (apiError?.message) {
-    if (apiError.status === "RESOURCE_EXHAUSTED") {
-      return "Gemini API quota exceeded. Try again in a minute or use a new API key at ai.google.dev.";
-    }
-    if (apiError.status === "NOT_FOUND") {
-      return "Gemini model not available. Update the app.";
-    }
-    return apiError.message;
-  }
-
-  if (error?.message === "Network request failed") {
-    return "Network error. Check your internet connection.";
-  }
-
-  return error?.message || "Unknown error";
+export function getErrorMessage(error) {
+  const apiMessage = error?.response?.data?.error?.message;
+  if (apiMessage) return apiMessage;
+  if (error?.message) return error.message;
+  return "AI nutrition analysis failed.";
 }
 
 async function callGemini(model, base64Image, mimeType) {
@@ -64,9 +80,7 @@ async function callGemini(model, base64Image, mimeType) {
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [
         {
@@ -81,80 +95,61 @@ async function callGemini(model, base64Image, mimeType) {
           ],
         },
       ],
+      generationConfig: {
+        temperature: 0.4,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 2048,
+      },
     }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    const err = new Error(data?.error?.message || `HTTP ${response.status}`);
-    err.apiError = data?.error;
+    const err = new Error(data?.error?.message || `Gemini API error (${response.status})`);
+    err.response = { data };
     throw err;
   }
 
-  const candidate = data.candidates?.[0];
-
-  if (!candidate) {
-    const err = new Error(
-      data.promptFeedback?.blockReason
-        ? `Blocked by safety filter: ${data.promptFeedback.blockReason}`
-        : "No response from Gemini."
-    );
-    throw err;
-  }
-
-  if (candidate.finishReason && candidate.finishReason !== "STOP") {
-    const err = new Error(`Response blocked: ${candidate.finishReason}`);
-    throw err;
-  }
-
-  const text = candidate.content?.parts
-    ?.map((part) => part.text)
-    .filter(Boolean)
-    .join("\n");
-
-  if (!text) {
-    throw new Error("Gemini returned empty text.");
-  }
-
-  return text;
+  return data.candidates?.[0]?.content?.parts?.[0]?.text;
 }
 
-export const analyzeFoodImage = async (
-  base64Image,
-  mimeType = "image/jpeg"
-) => {
+export const analyzeFoodImage = async (base64Image, mimeType = "image/jpeg") => {
   if (!API_KEY) {
     throw new Error(
-      "Missing API key. Add EXPO_PUBLIC_GEMINI_API_KEY to your .env file."
+      "Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to .env and restart Expo with: npx expo start -c"
     );
   }
 
-  const imageData = normalizeBase64(base64Image);
-
+  const imageData = cleanBase64(base64Image);
   if (!imageData) {
-    throw new Error("Could not read image data. Try selecting the photo again.");
+    throw new Error("No image data to analyze.");
   }
 
-  let lastError = null;
+  console.log("STARTING GEMINI FOOD ANALYSIS");
+
+  let lastError;
 
   for (const model of MODELS) {
     try {
-      return await callGemini(model, imageData, mimeType);
+      console.log(`Trying model: ${model}`);
+      const result = await callGemini(model, imageData, mimeType);
+
+      if (result) {
+        console.log("GEMINI SUCCESS");
+        return result;
+      }
     } catch (error) {
       lastError = error;
-      const status = error.apiError?.status;
-      if (status === "NOT_FOUND") {
-        continue;
-      }
-      if (status === "RESOURCE_EXHAUSTED") {
-        continue;
-      }
-      throw error;
+      console.log(`Model ${model} failed:`, error.response?.data || error.message);
+
+      const status = error.response?.data?.error?.status;
+      if (status === "NOT_FOUND") continue;
+      if (status === "RESOURCE_EXHAUSTED") continue;
     }
   }
 
-  throw lastError || new Error("All Gemini models failed.");
+  console.log("FULL GEMINI ERROR:", lastError?.response?.data || lastError?.message);
+  throw lastError || new Error("AI nutrition analysis failed.");
 };
-
-export { getErrorMessage };

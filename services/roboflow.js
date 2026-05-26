@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_KEY = "JX9qpMKTAMG3HBzHFO3l";
+const API_KEY = process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
 
 export const detectFood = async (imageUri) => {
   try {

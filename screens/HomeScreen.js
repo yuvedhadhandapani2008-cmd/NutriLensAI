@@ -1,159 +1,231 @@
-import { useState } from "react";
-
+import React, { useState } from "react";
 import {
   View,
   Text,
+  StyleSheet,
   TouchableOpacity,
   Image,
+  ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
+import { Camera } from "expo-camera";
 
-import { analyzeFoodImage, getErrorMessage } from "../services/gemini";
+import * as FileSystem from "expo-file-system/legacy";
+
+import { analyzeFoodImage } from "../services/gemini";
 
 export default function HomeScreen({ navigation }) {
   const [image, setImage] = useState(null);
+  const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // PICK IMAGE FROM GALLERY
   const pickImage = async () => {
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert(
-          "Permission required",
-          "Photo library access is needed to scan meals."
-        );
+        alert("Gallery permission is required");
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const pickedImage = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        allowsEditing: false,
-        quality: 0.5,
-        base64: true,
+        quality: 1,
       });
 
-      if (!result.canceled) {
-        const asset = result.assets[0];
-
-        if (!asset.base64) {
-          Alert.alert(
-            "Error",
-            "Could not read image data. Try another photo."
-          );
-          return;
-        }
-
-        setImage(asset.uri);
-        analyzeMeal(
-          asset.base64,
-          asset.uri,
-          asset.mimeType || "image/jpeg"
-        );
+      if (!pickedImage.canceled) {
+        processImage(pickedImage.assets[0].uri);
       }
     } catch (error) {
       console.log(error);
+      alert("Failed to pick image");
     }
   };
 
-  const analyzeMeal = async (base64, imageUri, mimeType) => {
-    if (!base64) {
-      Alert.alert("Error", "Could not read the selected image.");
-      return;
-    }
-
+  // TAKE PHOTO USING CAMERA
+  const takePhoto = async () => {
     try {
+      const permission = await Camera.requestCameraPermissionsAsync();
+
+      if (!permission.granted) {
+        alert("Camera permission is required");
+        return;
+      }
+
+      const capturedImage = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+      });
+
+      if (!capturedImage.canceled) {
+        processImage(capturedImage.assets[0].uri);
+      }
+    } catch (error) {
+      console.log(error);
+      alert("Failed to open camera");
+    }
+  };
+
+  // PROCESS IMAGE
+  const processImage = async (imageUri) => {
+    try {
+      setImage(imageUri);
+
       setLoading(true);
 
-      const result = await analyzeFoodImage(base64, mimeType);
+      setResult("");
 
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const aiResult = await analyzeFoodImage(base64);
+
+      setResult(aiResult);
       navigation.navigate("Result", {
         image: imageUri,
-        result,
+        result: aiResult,
       });
     } catch (error) {
-      console.log(error.response?.data || error.message);
-      Alert.alert("Analysis failed", getErrorMessage(error));
+      console.log(error);
+      alert("Image processing failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#0D0D0D",
-        padding: 20,
-      }}
-    >
-      <Text
-        style={{
-          color: "white",
-          fontSize: 42,
-          fontWeight: "bold",
-          marginTop: 70,
-        }}
-      >
-        NutriLens AI
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>NutriLens AI</Text>
+
+      <Text style={styles.subtitle}>
+        AI Food Nutrition Analyzer
       </Text>
 
-      <Text
-        style={{
-          color: "#888",
-          fontSize: 18,
-          marginTop: 10,
-        }}
-      >
-        AI nutrition tracking
-      </Text>
-
-      <TouchableOpacity
-        onPress={pickImage}
-        style={{
-          backgroundColor: "#00C896",
-          padding: 22,
-          borderRadius: 28,
-          marginTop: 60,
-          alignItems: "center",
-        }}
-      >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 24,
-            fontWeight: "bold",
-          }}
-        >
-          Scan Meal
-        </Text>
+      {/* GALLERY BUTTON */}
+      <TouchableOpacity style={styles.button} onPress={pickImage}>
+        <Text style={styles.buttonText}>Upload Food Image</Text>
       </TouchableOpacity>
 
+      {/* CAMERA BUTTON */}
+      <TouchableOpacity
+        style={[styles.button, styles.cameraButton]}
+        onPress={takePhoto}
+      >
+        <Text style={styles.buttonText}>Take Food Photo</Text>
+      </TouchableOpacity>
+
+      {/* IMAGE PREVIEW */}
       {image && (
-        <Image
-          source={{ uri: image }}
-          style={{
-            width: "100%",
-            height: 320,
-            borderRadius: 30,
-            marginTop: 35,
-          }}
-        />
+        <Image source={{ uri: image }} style={styles.image} />
       )}
 
+      {/* LOADING */}
       {loading && (
-        <ActivityIndicator
-          size="large"
-          color="#00C896"
-          style={{
-            marginTop: 40,
-          }}
-        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00ff99" />
+
+          <Text style={styles.loadingText}>
+            Analyzing your meal...
+          </Text>
+        </View>
       )}
-    </View>
+
+      {/* RESULT */}
+      {result !== "" && (
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultTitle}>
+            Nutrition Analysis
+          </Text>
+
+          <Text style={styles.resultText}>{result}</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#0f0f0f",
+    padding: 20,
+  },
+
+  title: {
+    color: "white",
+    fontSize: 34,
+    fontWeight: "bold",
+    marginTop: 60,
+    textAlign: "center",
+  },
+
+  subtitle: {
+    color: "#999",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 30,
+    marginTop: 10,
+  },
+
+  button: {
+    backgroundColor: "#00cc88",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 15,
+    alignItems: "center",
+  },
+
+  cameraButton: {
+    backgroundColor: "#0099ff",
+  },
+
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  image: {
+    width: "100%",
+    height: 280,
+    borderRadius: 20,
+    marginTop: 20,
+  },
+
+  loadingContainer: {
+    marginTop: 30,
+    alignItems: "center",
+  },
+
+  loadingText: {
+    color: "white",
+    marginTop: 15,
+    fontSize: 16,
+  },
+
+  resultContainer: {
+    marginTop: 30,
+    backgroundColor: "#1c1c1c",
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 50,
+  },
+
+  resultTitle: {
+    color: "#00ff99",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+
+  resultText: {
+    color: "white",
+    fontSize: 16,
+    lineHeight: 26,
+  },
+});

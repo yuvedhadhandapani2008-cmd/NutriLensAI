@@ -1,64 +1,63 @@
+import React from "react";
 import {
   View,
   Text,
-  Image,
+  StyleSheet,
   ScrollView,
+ Image,
 } from "react-native";
 
-export default function ResultScreen({
-  route,
-}) {
+export default function ResultScreen({ route }) {
   const { image, result } = route.params;
 
   return (
-    <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: "#0D0D0D",
-      }}
-    >
-      <Image
-        source={{ uri: image }}
-        style={{
-          width: "100%",
-          height: 320,
-        }}
-      />
+    <ScrollView style={styles.container}>
+      {/* FOOD IMAGE */}
+      <Image source={{ uri: image }} style={styles.image} />
 
-      <View
-        style={{
-          padding: 20,
-        }}
-      >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 32,
-            fontWeight: "bold",
-          }}
-        >
-          Nutrition Analysis
-        </Text>
+      {/* TITLE */}
+      <Text style={styles.title}>Nutrition Analysis</Text>
 
-        <View
-          style={{
-            backgroundColor: "#1A1A1A",
-            padding: 20,
-            borderRadius: 24,
-            marginTop: 25,
-          }}
-        >
-          <Text
-            style={{
-              color: "#DDD",
-              fontSize: 18,
-              lineHeight: 32,
-            }}
-          >
-            {result}
-          </Text>
-        </View>
+      {/* RESULT BOX */}
+      <View style={styles.resultBox}>
+        <Text style={styles.resultText}>{result}</Text>
       </View>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#0f0f0f",
+    padding: 20,
+  },
+
+  image: {
+    width: "100%",
+    height: 280,
+    borderRadius: 24,
+    marginTop: 40,
+  },
+
+  title: {
+    color: "white",
+    fontSize: 30,
+    fontWeight: "bold",
+    marginTop: 25,
+    marginBottom: 20,
+  },
+
+  resultBox: {
+    backgroundColor: "#1c1c1c",
+    padding: 22,
+    borderRadius: 22,
+    marginBottom: 50,
+  },
+
+  resultText: {
+    color: "white",
+    fontSize: 16,
+    lineHeight: 30,
+  },
+});
