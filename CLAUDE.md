@@ -36,9 +36,6 @@ The app allows users to:
 - Serving estimation
 - Dark themed UI
 - Result screen navigation
-
-## Planned Features
-
 - Meal history
 - Daily calorie tracker
 - Health score system
